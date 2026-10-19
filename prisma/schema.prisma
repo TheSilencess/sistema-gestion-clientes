@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+model RecordEntry {
+  id String @id
+  tenant String 
+  space String 
+  module String 
+  code String 
+  name String 
+  data String @db.Text
+  legacy_id String? 
+  legacy_module String? 
+  raw String? @db.Text
+  created_at String 
+  updated_at String 
+  version Int @default(1)
+  deleted_at String? 
+
+  @@unique([tenant, space, module, code], map: "record_code")
+  @@unique([tenant, space, module, legacy_module, legacy_id], map: "legacy_identity")
+  @@index([tenant, space, module], map: "record_lookup")
+  @@map("records")
+}
+
+model Audit {
+  id String @id
+  tenant String 
+  space String 
+  record_id String? 
+  actor String 
+  action String 
+  before String? @db.Text
+  after String? @db.Text
+  created_at String 
+
+  @@index([tenant, space, record_id])
+  @@map("audit")
+}
+
+model Counter {
+  key String @id
+  value BigInt 
+
+  @@map("counters")
+}
+
+model Preference {
+  key String @id
+  value String @db.Text
+
+  @@map("preferences")
+}
+
+model Attachment {
+  id String @id
+  tenant String 
+  space String 
+  record_id String 
+  name String 
+  mime String 
+  size Int 
+  hash String 
+  object_key String 
+  created_at String 
+
+  @@index([tenant, space, record_id])
+  @@map("attachments")
+}
+
+model Comment {
+  id String @id
+  tenant String 
+  space String 
+  record_id String 
+  body String @db.Text
+  actor String 
+  created_at String 
+
+  @@index([tenant, space, record_id])
+  @@map("comments")
+}
+
+model MigrationBatch {
+  id String @id
+  tenant String 
+  space String 
+  module String 
+  filename String 
+  hash String 
+  summary String @db.Text
+  created_at String 
+
+  @@map("migration_batches")
+}
+
+model AppUser {
+  id String @id
+  username String @unique
+  name String 
+  role String 
+  salt String 
+  hash String 
+  active Boolean @default(true)
+
+  @@map("app_users")
+}
+
+model AppSession {
+  token String @id
+  user_id String 
+  expires BigInt 
+
+  @@index([user_id])
+  @@index([expires])
+  @@map("app_sessions")
+}
+
+model LoginAttempt {
+  key String @id
+  count Int @default(0)
+  until BigInt @default(0)
+
+  @@map("login_attempts")
+}
+
