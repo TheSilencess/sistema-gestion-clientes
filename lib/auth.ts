@@ -39,5 +39,9 @@ export function createAuthHandlers(db:PrismaClient){return async function handle
   return reply({ok:true});
  }
  return reply({error:'No encontrado'},404);
- }catch(e){const error=e as {code?:string;message:string};return reply({error:error.code==='P2002'?'El usuario ya existe.':error.code?'No se pudo completar la operación.':error.message},400);}};}
+ }catch(e){const error=e as {code?:string;message:string;name?:string};
+ const diagnostics:Record<string,string>={P1000:'PostgreSQL rechazó las credenciales. Revisa DATABASE_URL en .env.',P1001:'No se pudo conectar con PostgreSQL. Revisa que esté iniciado y que DATABASE_URL tenga el host y puerto correctos.',P1002:'PostgreSQL no respondió a tiempo.',P1003:'La base de datos configurada no existe. Créala y ejecuta npm run db:deploy.',P1010:'El usuario de PostgreSQL no tiene acceso a esta base.',P1012:'La configuración de Prisma no es válida. Revisa DATABASE_URL y ejecuta npm run db:generate.',P2021:'Faltan las tablas de la aplicación. Ejecuta npm run db:deploy contra la base configurada en .env.',P2022:'El esquema de la base está desactualizado. Ejecuta npm run db:deploy.'};
+ if(error.code&&diagnostics[error.code])return reply({error:diagnostics[error.code],code:error.code},503);
+ if(error.name==='PrismaClientInitializationError')return reply({error:'No se pudo iniciar Prisma. Revisa DATABASE_URL y ejecuta npm run db:generate. Si continúa, comparte únicamente el código de error, sin credenciales.',code:'PRISMA_INITIALIZATION'},503);
+ return reply({error:error.code==='P2002'?'El usuario ya existe.':error.code?'No se pudo completar la operación.':error.message},400);}};}
 export const authHandler=createAuthHandlers(prisma);

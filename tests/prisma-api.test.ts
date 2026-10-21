@@ -26,7 +26,7 @@ test('flujo completo, saldos, control de versiones e historial',async()=>{
  const conflict=await call({action:'save',module:'payments',id:payment.id,version:payment.version,data:{...payment.data,status:'Realizado'}});assert.equal(conflict.status,409);assert.equal((await call({action:'save',module:'payments',id:payment.id,data:payment.data})).status,400);
  const history=await(await route.GET(new Request(url+'&record='+payment.id))).json();assert.equal(history.events.length,2);
  const reject=await call({action:'save',module:'invoices',data:{...all.entries.find(r=>r.id===inv.id).data,status:'Electronica'}});assert.equal(reject.status,400);assert.match(reject.error,/FEL/);
- assert.equal((await call({action:'archive',id:inv.id})).status,400);
+ assert.equal((await call({action:'archive',id:inv.id})).status,200);assert.ok((await get()).entries.find(r=>r.id===inv.id).deletedAt);assert.equal((await call({action:'restore',id:inv.id})).status,200);
 });
 test('aislamiento entre identidades, espacios y protección de origen',async()=>{
  const before=await get();assert.ok(before.entries.length>0);assert.match((await get('demo')).error,/datos reales/);
@@ -62,6 +62,21 @@ test('ventas comparte datos, registra operaciones y no administra configuraci�
  identity={userId:'owner',role:'admin',displayName:'Admin',email:'admin@example.test'};assert.ok((await get()).entries.some(r=>r.id===c.id));
 });
 
+test('estados de pagos y papelera de ventas conservan los saldos',async()=>{
+ const invoice=(await get()).entries.find((r:any)=>r.module==='invoices'&&!r.legacyId),base=invoice.data.balance;
+ const pending=await call({action:'save',module:'payments',data:{name:'Abono en revisión',date:'2026-10-20',documentId:invoice.id,amount:base,status:'Pendiente',assigned:'Ventas'}});assert.equal(pending.status,200);
+ let all=await get();assert.equal(all.entries.find((r:any)=>r.id===invoice.id).data.balance,base);assert.equal(all.entries.find((r:any)=>r.id===invoice.id).data.paymentStatus,'Pendiente');
+ assert.equal((await call({action:'archive',id:invoice.id})).status,400);
+ let payment=all.entries.find((r:any)=>r.id===pending.id);assert.equal((await call({action:'save',module:'payments',id:payment.id,version:payment.version,data:{...payment.data,status:'Realizado'}})).status,200);
+ all=await get();assert.equal(all.entries.find((r:any)=>r.id===invoice.id).data.balance,'0.00');assert.equal(all.entries.find((r:any)=>r.id===invoice.id).data.paymentStatus,'Completado');assert.equal((await call({action:'archive',id:invoice.id})).status,400);
+ payment=all.entries.find((r:any)=>r.id===pending.id);assert.equal((await call({action:'save',module:'payments',id:payment.id,version:payment.version,data:{...payment.data,status:'Anulado'}})).status,200);
+ assert.equal((await get()).entries.find((r:any)=>r.id===invoice.id).data.balance,base);assert.equal((await call({action:'archive',id:invoice.id})).status,200);
+ assert.equal((await call({action:'save',module:'payments',data:{...payment.data,status:'Realizado'}})).status,400);
+ const archived=(await get()).entries.find((r:any)=>r.id===invoice.id);assert.ok(archived.deletedAt);
+ const history=await(await route.GET(new Request(url+'&record='+invoice.id))).json();assert.ok(history.events.some((r:any)=>r.action==='Archivado'));
+ assert.equal((await call({action:'restore',id:invoice.id})).status,200);assert.equal((await get()).entries.find((r:any)=>r.id===invoice.id).data.balance,base);
+ const original=await prisma.recordEntry.findUniqueOrThrow({where:{id:invoice.id}}),data=JSON.parse(original.data);await prisma.recordEntry.update({where:{id:invoice.id},data:{data:JSON.stringify({...data,dte:'TEST-DTE'})}});assert.equal((await call({action:'archive',id:invoice.id})).status,400);await prisma.recordEntry.update({where:{id:invoice.id},data:{data:original.data}});
+});
 test('cuentas reales, contraseñas protegidas, permisos, archivos y revocación de sesiones',async()=>{
  const auth=createAuthHandlers(prisma);let cookie='';
  async function authCall(path:string,body?:any,session=cookie,origin='https://example.test'){const r=await auth(new Request('https://example.test'+path,{method:body?'POST':'GET',headers:{Origin:origin,Cookie:session,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})}));return{status:r.status,data:await r.json(),cookie:r.headers.get('set-cookie')?.split(';')[0]};}
@@ -126,3 +141,5 @@ test('traslado SQLite a PostgreSQL conserva datos reales, cuentas y adjuntos',as
   await assert.rejects(()=>importSQLite(['--source',file,'--commit'],prisma),/vacío/);
  }finally{if(oldUpload===undefined)delete process.env.UPLOAD_DIR;else process.env.UPLOAD_DIR=oldUpload;}
 });
+
+test('diagnóstico de conexión y tablas sin revelar credenciales',async()=>{for(const code of ['P1000','P1001','P2021','P2022']){const db={appUser:{async findFirst(){throw Object.assign(Error('sensitive connection details'),{code});}}};const r=await createAuthHandlers(db as any)(new Request('https://example.test/api/auth/session'));assert.equal(r.status,503);const d=await r.json();assert.equal(d.code,code);assert.ok(!d.error.includes('sensitive'));}});

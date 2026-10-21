@@ -83,3 +83,7 @@ El entorno bloquea las descargas npm y de los motores nativos de Prisma. Por eso
 Para las pruebas PostgreSQL configura una base VACÍA y exclusiva de pruebas, DATABASE_URL y GIFT_TEST_DATABASE=1; ejecuta `npm run test:integration`. La suite comprueba que el destino inicial esté vacío y modifica solo la base de pruebas indicada. `npm test` incluye las pruebas de dominio y omite la integración si no se habilita esa base.
 
 La adaptación de stack no añade ni cambia funciones de negocio. FEL, inventario automático, correo, diseños fiscales exactos, conciliación y las demás equivalencias pendientes de la entrega anterior siguen pendientes. No se ha desplegado ni modificado el CRM original.
+
+## Actualización 0.3.1
+
+Facturas y Envíos permite eliminar ventas no fiscales mediante una papelera recuperable, consultar los abonos en una pestaña Pagos y modificar sus estados desde allí. Los pagos admiten Pendiente, Realizado (completado) y Anulado; solo Realizado reduce el saldo. Los pagos activos bloquean la eliminación de la venta. No cambia el esquema de PostgreSQL ni requiere resetear datos. Detalles en docs/ACTUALIZACION-PAGOS.md. Las restricciones anteriores sobre archivo de documentos se sustituyen por estas reglas para ventas; compras y pagos continúan conservándose.
