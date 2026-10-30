@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Gift · Gestión",
+  title: "Kadosh · Gestión",
   description: "Clientes, ventas y envíos, inventario y compras en un solo lugar.",
   icons: {
     icon: "/favicon.svg",

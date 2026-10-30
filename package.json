@@ -11,7 +11,7 @@
     "start": "next start",
     "postinstall": "prisma generate",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint app lib prisma scripts --ignore-pattern lib/generated/**",
+    "lint": "eslint app lib scripts --ignore-pattern lib/generated/**",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
